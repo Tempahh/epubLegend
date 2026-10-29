@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "chore",
   "description": "Project initialization: Create Next.js 14 workspace structure with package.json, tsconfig, .env.local, directory scaffolding, and SQLite database schema. Sets up the foundation for all subsequent features.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Create root package.json at /Users/mac/Documents/epubLegend/package.json with npm workspaces config pointing to 'frontend' and 'backend' directories. Include shared dev dependencies: TypeScript, @types/node, prettier, eslint. Prepare scripts: 'build': 'npm -ws run build', 'test': 'npm -ws run test', 'dev': 'npm --workspace=frontend run dev'",
     "Create /Users/mac/Documents/epubLegend/frontend/package.json with Next.js 14, React 18, TypeScript, Tailwind CSS, axios, sharp, epub-gen. Include scripts: 'dev': 'next dev', 'build': 'next build', 'test': 'jest --watch'",
@@ -32,5 +32,5 @@
     "Verify .env.local exists: `cat /Users/mac/Documents/epubLegend/.env.local | grep NOVEL_SOURCE_URL` should output the freewebnovel URL"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Project initialized successfully. npm install via pnpm completed. Next.js 14 frontend build successful (next build). Dev server starts correctly on localhost:3000. SQLite schema defined in backend/models/db.ts using sql.js (cross-platform pure JS). All directories created. Environment variables configured in .env.local. Git repository initialized with initial commit."
 }
