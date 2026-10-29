@@ -28,3 +28,68 @@ a {
     background: #000;
   }
 }
+
+/* Button Hover States */
+@layer components {
+  .btn-primary {
+    @apply bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition;
+  }
+
+  .btn-success {
+    @apply bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition;
+  }
+}
+
+/* Input Focus States */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+textarea,
+select {
+  @apply border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition;
+}
+
+/* Progress Bar Animation */
+@keyframes progress-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.progress-bar-animated {
+  background-size: 200% 100%;
+  animation: progress-animation 2s ease-in-out infinite;
+}
+
+/* Responsive Breakpoints (mobile-first) */
+@media (max-width: 640px) {
+  .hidden-sm {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .hidden-md {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hidden-lg {
+    display: none;
+  }
+}

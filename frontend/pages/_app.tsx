@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { AppProps } from 'next/app';
 import '../styles/globals.css';
 
@@ -35,42 +35,63 @@ export interface HistoryItem {
 
 interface AppContextType {
   searchResults: SearchResult[];
+  setSearchResults: (results: SearchResult[]) => void;
   currentScrape: ScrapeProgress | null;
+  setCurrentScrape: (scrape: ScrapeProgress | null) => void;
   history: HistoryItem[];
-  startScrape: (novelId: string) => Promise<void>;
-  clearScrape: () => void;
-  resumeScrape: (novelId: string) => Promise<void>;
+  setHistory: (history: HistoryItem[]) => void;
+  clearCurrentScrape: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const CURRENT_SCRAPE_STORAGE_KEY = 'currentScrapeNovelId';
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [searchResults] = useState<SearchResult[]>([]);
-  const [currentScrape] = useState<ScrapeProgress | null>(null);
-  const [history] = useState<HistoryItem[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [currentScrape, setCurrentScrape] = useState<ScrapeProgress | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  // TODO: Implement in FEAT-004 (Queue System)
-  const startScrape = async (novelId: string) => {
-    console.log('Starting scrape for novelId:', novelId);
-  };
+  // Load currentScrapeNovelId from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(CURRENT_SCRAPE_STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setCurrentScrape(parsed);
+        } catch {
+          // Invalid JSON, ignore
+        }
+      }
+    }
+  }, []);
 
-  const clearScrape = () => {
-    console.log('Clearing scrape');
-  };
+  // Persist currentScrape to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (currentScrape) {
+        localStorage.setItem(CURRENT_SCRAPE_STORAGE_KEY, JSON.stringify(currentScrape));
+      } else {
+        localStorage.removeItem(CURRENT_SCRAPE_STORAGE_KEY);
+      }
+    }
+  }, [currentScrape]);
 
-  const resumeScrape = async (novelId: string) => {
-    console.log('Resuming scrape for novelId:', novelId);
+  const clearCurrentScrape = () => {
+    setCurrentScrape(null);
   };
 
   return (
     <AppContext.Provider
       value={{
         searchResults,
+        setSearchResults,
         currentScrape,
+        setCurrentScrape,
         history,
-        startScrape,
-        clearScrape,
-        resumeScrape,
+        setHistory,
+        clearCurrentScrape,
       }}
     >
       {children}
