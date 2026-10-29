@@ -1,0 +1,15 @@
+{
+  "task_id": "task-epublegend-impl",
+  "task_description": "Implement full-stack e-book scraper and generator for freewebnovel.com with search, chapter scraping, EPUB/PDF export, resume capability, and caching",
+  "status": "pending",
+  "feature_order": [
+    "FEAT-001",
+    "FEAT-002",
+    "FEAT-003",
+    "FEAT-004",
+    "FEAT-005",
+    "FEAT-006",
+    "FEAT-007"
+  ],
+  "blocked_reason": null
+}

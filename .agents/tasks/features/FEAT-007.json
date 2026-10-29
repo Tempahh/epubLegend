@@ -1,0 +1,43 @@
+{
+  "id": "FEAT-007",
+  "type": "test",
+  "description": "Integration testing and verification: Create end-to-end test suite covering full workflows: search → scrape → resume → export, error recovery, rate limiting, and edge cases. Verify all FEATs work together and meet the original user requirements.",
+  "status": "pending",
+  "steps": [
+    "Create /Users/mac/Documents/epubLegend/tests/e2e/scrape-workflow.test.ts with comprehensive integration test suite using Jest + mock HTTP responses: (1) test_search_returns_results (mock freewebnovel search page HTML, verify /api/search returns parsed results), (2) test_scrape_job_lifecycle (POST /api/scrape, poll progress, verify chapters cached), (3) test_scrape_resume_after_interruption (mock incomplete chapter, POST /api/scrape mode=resume, verify resumes from correct chapter), (4) test_scrape_handles_network_error (mock ECONNRESET, verify error in progress, resumable=true), (5) test_scrape_handles_rate_limit (mock HTTP 429, verify exponential backoff in progress), (6) test_export_epub_requires_3_chapters (create cache with 1,2,3 chapters, verify 422 for 2, success for 3), (7) test_export_pdf_generates_with_cover (mock cover image, generate PDF, verify contains cover page), (8) test_export_pdf_fallback_to_epub_if_puppeteer_unavailable (mock Puppeteer launch failure, verify 503 with helpful message)",
+    "Create /Users/mac/Documents/epubLegend/tests/e2e/user-journey.test.ts with user-centric workflow: (1) setup: clear downloads/ and db/novels.db before test, (2) user searches for 'solo leveling' -> /api/search returns 5 mock results with titles, authors, covers, (3) user clicks 'Start Scrape' on first result -> POST /api/scrape returns 202 with jobId, (4) user opens progress page, frontend polls every 1.5s, progress increments 0->25->50->75->100 over 5 seconds (mock timeline), (5) user sees '✓ Complete!' and clicks 'Export EPUB', -> POST /api/generate-ebook returns EPUB file stream, (6) user refreshes page, localStorage restores currentScrapeNovelId, progress still shows 100%, (7) user navigates to history, sees 'Solo Leveling' with download date",
+    "Create /Users/mac/Documents/epubLegend/tests/e2e/error-recovery.test.ts testing resilience: (1) test_resume_on_network_drop (scrape runs, reaches chapter 42, network drops, job status='paused', user calls POST /api/scrape mode=resume, resumes from chapter 42), (2) test_resume_validates_cached_chapters (cached chapters 1-42 complete + valid, 43 incomplete, resumes from 43, not 44), (3) test_retry_on_parse_error (chapter 30 has malformed HTML, Python logs error but continues, skips chapter 30, continues to 31), (4) test_orphaned_jobs_on_server_restart (simulate server crash by killing Node process, restart, check console for orphaned job warning), (5) test_duplicate_job_returns_409 (POST /api/scrape immediately followed by POST /api/scrape again, 2nd returns 409 with existing jobId)",
+    "Create /Users/mac/Documents/epubLegend/tests/e2e/rate-limiting.test.ts: (1) test_search_rate_limit_10_per_minute (make 11 POST /api/search requests in sequence, 11th returns 429), (2) test_scrape_queue_depth_limit (enqueue 20 jobs, 21st returns 503), (3) test_scrape_per_novel_concurrency_1 (start scrape for novel A, start scrape for novel A again immediately, 2nd returns 409), (4) test_max_concurrent_scrapes_3 (enqueue 5 jobs for 5 different novels, verify max 3 run concurrently in progress)",
+    "Create /Users/mac/Documents/epubLegend/tests/fixtures/mock-data.ts with reusable test data: (1) mockSearchHtml (realistic HTML from freewebnovel search results page), (2) mockChapterHtml (realistic chapter with content, ads, author notes), (3) mockNovelMetadata (title, author, description, cover URL), (4) mockJobProgress (current job state with chapters, completion %, timestamps), (5) mockFtw chapters (1-10 complete + valid, 11 incomplete, for resume testing)",
+    "Create /Users/mac/Documents/epubLegend/tests/setup.ts to initialize test environment: (1) before all tests: create temp db and downloads/ directories, (2) before each test: clear db tables and cached files, (3) after all tests: clean up temp directories, (4) setup mock HTTP server using jest.mock() for axios calls (so no live scraping during tests)",
+    "Create /Users/mac/Documents/epubLegend/tests/e2e/novel-metadata.test.ts testing metadata extraction: (1) test_novel_id_generation_is_deterministic (SHA256(url) always produces same id), (2) test_search_returns_novel_id_as_hash (verify novelId from search matches SHA256(url)), (3) test_get_novel_by_title_returns_exact_match_first (search for 'solo leveling', exact match appears before partial), (4) test_chapter_numbering_non_sequential (chapters 1, 5, 10 sort correctly by chapter_number, not inserted_order)",
+    "Create /Users/mac/Documents/epubLegend/tests/e2e/ebook-generation.test.ts focused on output quality: (1) test_epub_file_is_valid_zip (verify magic bytes PK and can extract with unzip), (2) test_epub_contains_metadata_in_container_xml (verify title, author, language in META-INF/container.xml), (3) test_epub_chapters_have_correct_formatting (verify each chapter has <h1> for title, <p> for content), (4) test_pdf_file_is_valid_pdf (verify magic bytes %PDF), (5) test_pdf_has_cover_page (generate PDF with cover, verify page count >= 2), (6) test_pdf_has_table_of_contents (verify TOC page exists and lists all chapters)",
+    "Create test runner config /Users/mac/Documents/epubLegend/jest.config.js to cover all test suites: testMatch: ['**/tests/**/*.test.ts', '**/backend/**/__tests__/**/*.test.ts', '**/frontend/**/__tests__/**/*.test.ts'], setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'], moduleNameMapper: path aliases from tsconfig",
+    "Create /Users/mac/Documents/epubLegend/tests/README.md documenting test structure: (1) unit tests: backend/services/__tests__, frontend/__tests__, (2) e2e tests: tests/e2e/, (3) fixtures: tests/fixtures/, (4) how to run: npm run test, npm run test:e2e, npm run test:coverage, (5) mocking strategy: jest.mock() for HTTP, fs mocked where needed"
+  ],
+  "acceptance_criteria": [
+    "Running `npm run test` executes all unit tests (backend + frontend) and reports >80% coverage for critical paths",
+    "Running `npm run test:e2e` (if configured) executes all integration tests and all pass",
+    "Search → Scrape → Export workflow completes successfully with mock data (end-to-end test)",
+    "Resume workflow correctly resumes from incomplete chapter after simulated network drop",
+    "Rate limiting verified: 11th search request returns 429, 21st enqueued job returns 503",
+    "Duplicate job detection verified: POSTing same novelId twice returns 409 on second attempt",
+    "EPUB file is valid zip with correct metadata structure",
+    "PDF file is valid PDF with cover page and TOC",
+    "Orphaned jobs are logged on server startup with resume instructions",
+    "All test edge cases pass: incomplete chapters, rate limits, parse errors, network drops"
+  ],
+  "verification": [
+    "Run `npm run test` and confirm all tests pass with >80% coverage (check coverage report)",
+    "Run `npm run test:e2e` and confirm all integration tests pass",
+    "Check test output for coverage report (should show: backend/services, backend/scrapers, frontend/components, frontend/hooks all >80%)",
+    "Manually run search → scrape → export workflow via `npm run dev`, verifying each step",
+    "Verify EPUB with: `unzip -t downloads/novels/{testId}/*.epub` should list files without errors",
+    "Verify PDF with: `file downloads/novels/{testId}/*.pdf` should report 'PDF document'",
+    "Simulate network drop (kill Python subprocess), verify job status='paused', resume via POST /api/scrape mode=resume",
+    "Verify rate limit: make 11 requests to /api/search in <60s, 11th should return 429 with retryAfter header",
+    "Verify orphaned job log: restart dev server after incomplete scrape, check console for warning message"
+  ],
+  "blocked_reason": null,
+  "findings": "Requires all previous FEATs (001-006) to be complete and functional. Tests should use mock data and mocked HTTP responses, not live scraping of freewebnovel.com. Use jest.mock() for subprocess communication and axios calls. Test data fixtures should be comprehensive enough to cover all edge cases (incomplete chapters, large files, missing metadata, etc.). Coverage report must show >80% for all critical modules to ensure production readiness."
+}

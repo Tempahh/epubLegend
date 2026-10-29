@@ -1,0 +1,24 @@
+{
+  "project_type": "Full-stack Next.js/Node.js frontend with Python scraper backend and SQLite database",
+  "language": "TypeScript (frontend/backend), Python (scraper)",
+  "build_system": "npm workspaces (root) with package.json at /Users/mac/Documents/epubLegend, subdirectories frontend/ and backend/; build via `npm run build`, tests via `npm run test`",
+  "test_framework": "Jest for TypeScript, pytest for Python scraper",
+  "build_command": "npm run build (compiles TypeScript, Next.js, generates static exports)",
+  "test_command": "npm run test (runs all unit and integration tests)",
+  "verification_instructions": "Each FEAT has its own verification commands. After all FEATs complete, run `npm run build && npm run test && npm run dev` (dev server at http://localhost:3000), then manually test: (1) search for 'solo leveling' in UI, (2) click scrape, verify progress updates, (3) export EPUB/PDF after 3+ chapters cached, (4) simulate network drop and resume. Full end-to-end test in integration suite.",
+  "snapshot_or_generated_files": "SQLite database at /Users/mac/Documents/epubLegend/db/novels.db and cached chapters at /Users/mac/Documents/epubLegend/downloads/novels/{novelId}/ are generated at runtime and checked by test suite but not checked into git (add to .gitignore)",
+  "environment_constraints": "Python 3.9+ required (specify in scripts/setup.sh). Puppeteer will auto-download Chromium on first use (large download ~150MB, pre-cache if CI). Redis optional (in-memory queue sufficient for development). Disk requirement: ~5GB for large novel caches. No breaking macOS/Linux differences in core logic, but test all Python regex selectors on both platforms.",
+  "contribution_requirements": "All code must be TypeScript (no bare .js), follow existing tsconfig paths, use Tailwind CSS for styling (no CSS-in-JS), commit messages in Conventional Commits format (feat:, fix:, etc.), each FEAT must pass its verification suite before merging, Python scraper tested with mock BeautifulSoup responses not live requests",
+  "key_patterns": "Use SHA256 hashing for novel IDs (sha256(url) as hex string), store job state in SQLite + filesystem (dual persistence), use child_process.spawn for Python subprocess with JSON stdout communication, implement INSERT OR REPLACE for chapter updates on re-scrape, use atomic file writes (temp + rename) for crash safety, use localStorage for frontend state persistence across sessions",
+  "relevant_files": [
+    "/Users/mac/Documents/epubLegend/package.json (create with workspaces config)",
+    "/Users/mac/Documents/epubLegend/frontend/package.json (Next.js + React config)",
+    "/Users/mac/Documents/epubLegend/backend/package.json (Express + Bull queue config)",
+    "/Users/mac/Documents/epubLegend/frontend/pages/api/ (API route implementations)",
+    "/Users/mac/Documents/epubLegend/backend/models/db.ts (SQLite schema init)",
+    "/Users/mac/Documents/epubLegend/backend/scrapers/freewebnovel_scraper.py (Beautiful Soup implementation)",
+    "/Users/mac/Documents/epubLegend/backend/services/queue.ts (Bull job queue)",
+    "/Users/mac/Documents/epubLegend/frontend/hooks/useScrapeProgress.ts (React polling logic)"
+  ],
+  "directory_structure": "Root: /Users/mac/Documents/epubLegend/. Subdirectories: frontend/ (Next.js app, pages/, components/, hooks/, styles/), backend/ (services/, scrapers/, models/), db/ (SQLite runtime output), downloads/novels/{novelId}/ (runtime cache), .agents/tasks/ (this planning artifact). No src/ directory; Next.js uses pages/ directly."
+}

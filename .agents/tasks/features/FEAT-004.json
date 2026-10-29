@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Queue system and job management: Implement Bull job queue with in-memory adapter for development (Redis optional for production). Prevents concurrent scrapes per novel, enforces global concurrency limits (3 max, 20 queue depth), and integrates with Python scraper subprocess. Handles duplicate job detection, job status tracking, and error recovery.",
+  "status": "pending",
+  "steps": [
+    "Create /Users/mac/Documents/epubLegend/backend/services/queue.ts with Bull queue setup: (1) import bull and configure in-memory adapter via custom Redis client or in-process store for MVP, (2) create queue instance named 'scrape-jobs' with options {defaultJobOptions: {attempts: 3, backoff: {type: 'exponential', delay: 2000}, removeOnComplete: false}}, (3) define jobProcessor function that accepts (job) and returns {novelId, status, completedChapters}, (4) use queue.process(5, jobProcessor) to set max concurrency to 5 (actual limit enforced in enqueue), (5) implement enqueueScrapeJob(novelId, mode) that: checks queue for existing job with same novelId (in 'waiting' or 'in_progress' state), returns 409 if found with existing jobId, checks queue depth (count of all jobs), returns 503 if depth >= 20, adds new job to queue with data {novelId, mode, retryCount: 0}, returns 202 with jobId and estimatedWaitSeconds",
+    "Create job processor in queue.ts that: (1) spawns Python subprocess: `python3 backend/scrapers/freewebnovel_scraper.py --novel-id {novelId} --start-chapter {resumeFromChapter} --cache-dir {cacheDir}`, (2) reads JSON lines from stdout (event stream), each event is one JSON object with {type, chapter, ...}, (3) handles event types: 'chapter_complete' (increment job.progress(completedChapters), update DB), 'rate_limited' (log to console, continue), 'complete' (finalize job, update DB status to completed), 'error' (fail job, update DB status to failed with error message), (4) on subprocess exit code 0: mark job as completed, (5) on non-zero exit: mark job as failed, store error message in DB, (6) update scrape_jobs table after each event with completed_chapters, last_chapter_scraped, status",
+    "Create /Users/mac/Documents/epubLegend/frontend/pages/api/scrape.ts (POST endpoint) that: (1) parse request {novelId, mode: 'start'|'resume'}, (2) validate novelId (64-char hex), validate mode in ['start', 'resume'], (3) call storage.getNovelById(novelId) to verify novel exists, (4) if mode='resume': call validateCachedChapters(novelId) to get resumeFromChapter pointer, (5) call enqueueScrapeJob(novelId, mode, resumeFromChapter), (6) return 202 {success: true, jobId, novelId, message: 'Scrape job queued', estimatedWaitSeconds}, (7) on duplicate job (409): return {success: false, error: 'Already in progress', jobId: existing, statusUrl, code: 'DUPLICATE_JOB'}, (8) on queue full (503): return {success: false, error: 'Queue full', code: 'QUEUE_FULL', retryAfter: 30}",
+    "Implement validateCachedChapters(novelId: string) -> number function in storage.ts: (1) read chapters/ directory for novelId, (2) sort chapter files by chapter number, (3) for each chapter file in order, load JSON and check: completed === true AND content.length >= 500, (4) if all chapters valid, return lastValidChapter + 1, (5) if incomplete chapter found, return that chapter number (resume from incomplete, not skip), (6) if chapters dir doesn't exist, return 1 (start from beginning), (7) log result to console for debugging",
+    "Integrate queue events with progress polling: (1) on job.progress(data) event in processor, update scrape_jobs table with completed_chapters, last_chapter_title, (2) frontend /api/scrape/:novelId/progress endpoint queries scrape_jobs and returns live progress to client, (3) implement job.updateProgress(data) calls after each chapter save in processor",
+    "Implement job recovery on Node.js startup in /Users/mac/Documents/epubLegend/backend/services/startup.ts: (1) on app startup, query scrape_jobs table for rows with status='in_progress', (2) for each orphaned job, log warning to console with format '⚠️  Found 2 orphaned jobs...', list each with job id and novel id, (3) log instructions: 'Resume via: POST /api/scrape with novelId=..., mode=resume'",
+    "Add error retry logic to queue.ts: (1) on job failure, check if retryable (network error=true, parse error=false), (2) if retryable and retryCount < 3, auto-retry with exponential backoff (2s, 4s, 8s), (3) if parse error or max retries exceeded, mark job as failed, do NOT auto-retry",
+    "Create unit tests in /Users/mac/Documents/epubLegend/backend/services/__tests__/queue.test.ts: test_enqueue_duplicate_returns_409 (mock existing job, verify duplicate response), test_enqueue_respects_queue_depth (mock 20 jobs, verify 503), test_job_processor_parses_stdout (mock chapter_complete events, verify DB update), test_job_processor_handles_rate_limit (mock rate_limited event, verify logging), test_validate_cached_chapters_finds_incomplete (mock incomplete JSON, verify resume point), test_startup_logs_orphaned_jobs (mock in_progress rows, verify console.warn)"
+  ],
+  "acceptance_criteria": [
+    "Calling enqueueScrapeJob(novelId, 'start') returns {status: 202, jobId} and adds job to queue",
+    "Calling enqueueScrapeJob with same novelId again returns {status: 409, jobId: existing}",
+    "Queue respects depth limit: enqueueScrapeJob returns 503 when 20+ jobs are queued",
+    "Job processor reads JSON from Python subprocess stdout and updates DB with completed_chapters after each chapter",
+    "validateCachedChapters(novelId) returns correct resume point: next chapter if all valid, incomplete chapter if found, 1 if no cache",
+    "Job recovery on startup logs orphaned jobs with resume instructions",
+    "Unit tests pass: `npm run test -- backend/services/__tests__/queue.test.ts`",
+    "Rate limit backoff is respected: job pauses and retries after exponential delay on 429"
+  ],
+  "verification": [
+    "Run `npm run test -- backend/services/__tests__/queue.test.ts -v --tb=short` and confirm all tests pass",
+    "Start dev server and manually POST /api/scrape with novelId; verify job is enqueued (check console output)",
+    "POST /api/scrape again with same novelId; verify 409 duplicate response",
+    "Create 20 mock jobs in queue via loop; POST /api/scrape #21; verify 503 response",
+    "Create mock cached chapters (1, 2, 3 complete, 4 incomplete); call validateCachedChapters; verify returns 4 (resume point)",
+    "Restart dev server; check console for orphaned jobs warning (if any from previous test)"
+  ],
+  "blocked_reason": null,
+  "findings": "Requires FEAT-001 (DB schema) and FEAT-003 (API endpoints stub). Subprocess communication must handle JSON line protocol with proper error detection. In-memory queue is sufficient for MVP; Redis can be added in Deployment phase without changing queue.ts interface."
+}

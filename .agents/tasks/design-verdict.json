@@ -1,0 +1,126 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings_count": 11,
+  "high_count": 4,
+  "medium_count": 5,
+  "nit_count": 2,
+  "findings": [
+    {
+      "id": 1,
+      "severity": "HIGH",
+      "title": "Unverified BeautifulSoup Selectors May Not Match freewebnovel.com HTML",
+      "description": "The design specifies CSS selectors for parsing search results, chapter content, and metadata, but provides no evidence that these selectors actually exist on the live site. If the site uses JavaScript rendering or different class names, all parsing will fail silently.",
+      "location": "Python Scraper Integration > Search Result Parsing; Chapter Discovery Algorithm",
+      "impact": "Silent parse failures result in 0 chapters downloaded; only discovered at runtime on live site",
+      "fix": "Create a test harness before implementation to validate selectors against live freewebnovel.com. Download sample pages and confirm that each selector returns expected data. Document actual selectors found and specify fallback behavior for structural changes (return 503 error)."
+    },
+    {
+      "id": 2,
+      "severity": "HIGH",
+      "title": "Resume Logic Race Condition — Partial Write During Chapter Save",
+      "description": "The atomic write uses temp file + rename for the chapter JSON, but state.json is updated in a separate, non-atomic operation. If the process crashes between chapter write and state update, the state file becomes inconsistent with cached chapters. Additionally, the Python code sets completed: False during write but never sets it to true, breaking the validation logic that checks for this flag.",
+      "location": "Error Handling & Resilience > Resume on Connection Drop; Python Scraper Integration > Python Save Function",
+      "impact": "Resume after crash may duplicate or skip chapters; validation cannot determine correct resume point",
+      "fix": "Reorder operations to make state.json update atomic with chapter write, or remove the completed flag and use state.json as sole source of truth. Specify that state.json is written BEFORE chapter rename, so if crash occurs, state indicates the chapter needs re-download."
+    },
+    {
+      "id": 3,
+      "severity": "HIGH",
+      "title": "Chapter Validation Missing Edge Case — Non-Sequential Chapter Numbers",
+      "description": "The design explicitly allows non-sequential chapter numbers (e.g., 1, 5, 10) but the resume validation assumes sequential ordering and resumes from the incomplete chapter number. The scraper will then attempt to scrape chapters 11, 12, 13, which may not exist on the site.",
+      "location": "Error Handling & Resilience > Resume validation (Node.js); Database Schema > Chapter Numbering Convention",
+      "impact": "Resume workflow fails for novels with non-sequential chapters; scraper gets stuck attempting non-existent chapters",
+      "fix": "Store the actual next chapter URL in state.json instead of just the chapter number. Python scraper resumes from the stored URL, not numeric increment. Resume validation returns the stored URL to scraper, not chapter_number + 1."
+    },
+    {
+      "id": 4,
+      "severity": "HIGH",
+      "title": "Insufficient Specification of Chapter Discovery Termination",
+      "description": "The scraper loops while scraping chapters, but the termination condition (when novel is complete) is not clearly specified. The code shows 'if not chapter_data: break' but scrape_chapter() implementation is not provided. It's unclear whether this returns None on 404, raises an exception, or returns empty dict.",
+      "location": "Python Scraper Integration > Chapter Discovery Algorithm; Python Script (High-Level)",
+      "impact": "Ambiguity could lead to infinite loops, incomplete chapter detection, or incorrect termination",
+      "fix": "Explicitly define scrape_chapter() signature and return values: must return Optional[dict] with next_chapter_url key, or None if chapter is last/not found. Specify that it never raises exceptions for missing chapters, always returns None or dict with next_url=None."
+    },
+    {
+      "id": 5,
+      "severity": "MEDIUM",
+      "title": "Ambiguous Error Handling for Search Parse Failures",
+      "description": "The design states return 503 if HTML structure changes, but does not specify how to handle partial parse failures. What if 30% of search results fail to parse? Should the endpoint return partial results, full error, or warning?",
+      "location": "Python Scraper Integration > Search Result Parsing > Error Handling",
+      "impact": "Inconsistent behavior; users may see partial results sometimes and errors other times",
+      "fix": "Define parse success threshold (e.g., >= 80% of results must parse successfully). Return 200 with partial results if threshold met. Return 503 if below threshold. Implement counter in scraper to track parse success rate and threshold check."
+    },
+    {
+      "id": 6,
+      "severity": "MEDIUM",
+      "title": "Queue Duplicate Detection Race Condition",
+      "description": "The duplicate detection checks for existing jobs, then adds a new one. Between these two operations, another concurrent request could enqueue the same novel, bypassing deduplication. Two jobs for the same novelId could end up running simultaneously.",
+      "location": "Queue System Design > Queue Duplicate Detection (Node.js)",
+      "impact": "Concurrent scrapes of same novel could happen, violating the 1 scrape per novelId design constraint",
+      "fix": "Use Bull's jobId feature to make the add operation atomic: queue.add({novelId, ...}, {jobId: `scrape:${novelId}`}). Bull automatically returns existing job if key already exists, preventing duplicates."
+    },
+    {
+      "id": 7,
+      "severity": "MEDIUM",
+      "title": "Missing Specification for Job Timeout and Stalled Job Recovery",
+      "description": "The design specifies 5-hour job timeout but does not explain what happens when timeout occurs, how stalled jobs (no progress heartbeat) are detected, or whether they are automatically recovered.",
+      "location": "Queue System Design > Job timeout property; Error Handling & Resilience > Retry Strategy",
+      "impact": "Unclear UX and backend behavior for long-running scrapes or stalled jobs",
+      "fix": "Specify: On timeout → mark job failed, preserve last_chapter_scraped in state.json. On stall (no heartbeat for 30s) → Bull moves job back to waiting after 2 attempts. Users must explicitly call resume endpoint; no automatic retry."
+    },
+    {
+      "id": 8,
+      "severity": "MEDIUM",
+      "title": "Ambiguous PDF Generation Fallback — No Alternative Specified",
+      "description": "If Puppeteer fails, the design returns 503 error with message 'Try EPUB export instead'. But the API endpoint only accepts one format at a time, so users must run generation twice or have no PDF at all.",
+      "location": "E-book Generation > PDF Generation > Error Handling; API Contract > POST /api/generate-ebook",
+      "impact": "Users with failed PDF generation have no graceful degradation or alternative export option",
+      "fix": "Choose and document one approach: (A) PDF all-or-nothing; (B) Allow batch export of both EPUB and PDF formats in single request; (C) Auto-fallback to EPUB if PDF generation fails. Specify error message and fallback behavior clearly."
+    },
+    {
+      "id": 9,
+      "severity": "MEDIUM",
+      "title": "Rate Limiting Defaults Conflict with Original 5-Minute Requirement",
+      "description": "Original user request mentioned '5 mins'. The design now defaults to 5-second rate-limiting delays. A 500-chapter novel would take ~42 minutes minimum, far exceeding 5 minutes. The design's interpretation of '5 mins' as a progress-stall tolerance window may differ from the original intent.",
+      "location": "Python Scraper Integration > Rate Limiting Strategy; Deployment > Environment Variables",
+      "impact": "User expectations about scrape speed may not be met; original requirement may be misinterpreted",
+      "fix": "Document explicitly: 'Original 5-minute requirement interpreted as tolerance for progress updates, not total scrape time. Scrape duration is approximately chapter_count × 5 seconds (default). Faster scraping available via RATE_LIMIT_DELAY_MS env var (not recommended; may trigger server rate-limiting).'"
+    },
+    {
+      "id": 10,
+      "severity": "NIT",
+      "title": "Novel ID Generation Not Deterministic for URL Variants",
+      "description": "Novel ID is SHA256(url). But URLs can have variants: www vs. no-www, query parameters, trailing slashes. Each variant produces different hash. Same novel could appear twice with different novelIds.",
+      "location": "Database Schema > novels table > Novel ID Generation",
+      "impact": "Duplicate novels in cache; resume workflow may fail if URL is not normalized consistently",
+      "fix": "Implement URL normalization function that enforces www subdomain, removes query params/fragments/trailing slashes before hashing. Apply consistently to all novel URLs."
+    },
+    {
+      "id": 11,
+      "severity": "NIT",
+      "title": "Missing Specification for Cover Image Cache Invalidation",
+      "description": "Cover images are downloaded once and cached, but design does not specify when cache should be invalidated. Should cover be re-downloaded on re-scrape? How long should cached cover be kept?",
+      "location": "E-book Generation > Cover Image Handling",
+      "impact": "Stale cover images if site updates novel cover; no user control over refresh",
+      "fix": "Document policy: (A) Download only once at initial scrape, preserve on re-scrape; (B) Re-download if metadata.updated > cached_at; (C) Allow manual refresh via query param. Choose one and specify clearly."
+    }
+  ],
+  "verified_assumptions": [
+    "Beautiful Soup 4 can parse HTML without auth",
+    "Bull job queue is suitable for MVP with in-memory backend",
+    "Next.js API routes can spawn Python subprocesses",
+    "SQLite with better-sqlite3 is suitable backend for this workload",
+    "Puppeteer can render HTML to PDF reliably",
+    "React Context + hooks sufficient for state management",
+    "Filesystem caching for chapters is practical and portable",
+    "axios is suitable for HTTP requests"
+  ],
+  "unverified_assumptions": [
+    "freewebnovel.com has stable, predictable HTML selectors (not tested)",
+    "Python scraper terminates cleanly when novel is complete (implementation not shown)",
+    "freewebnovel.com returns HTTP 429 for rate-limiting (not verified)",
+    "Atomic file rename prevents corruption on all target filesystems (context-dependent)",
+    "Chapter completion atomicity is guaranteed with current implementation (actually has race condition)"
+  ],
+  "review_document": "See /Users/mac/Documents/epubLegend/.agents/tasks/design-review.md"
+}

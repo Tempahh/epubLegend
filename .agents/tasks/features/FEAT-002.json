@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Python scraper implementation: Create Beautiful Soup-based scraper for freewebnovel.com that extracts search results and chapters with metadata. Implements atomic file writes, rate limiting, error handling, and JSON stdout communication protocol for Node.js subprocess integration.",
+  "status": "pending",
+  "steps": [
+    "Create /Users/mac/Documents/epubLegend/backend/scrapers/freewebnovel_scraper.py with Beautiful Soup 4. Implement search_novels(query: str, page: int) -> list[dict] function that: (1) constructs URL https://www.freewebnovel.com/search?keywords={query}&pageNo={page}, (2) uses BeautifulSoup selectors 'div.SearchResult', 'div.novel-item', 'a.novel-title', 'span.author-name', 'img.cover-image', 'a.genre' to parse results, (3) returns list of dicts with keys: url, title, author, cover, genre (max 50 results per page), (4) on selector failure returns empty list (do not raise on parse error)",
+    "Implement extract_metadata(soup, novel_url) -> dict to extract title, author, description, cover_url, genre, status (ongoing/completed) using meta tags (og:title, og:image, description) and HTML parsing. Gracefully handle missing fields with defaults (e.g., author='Unknown')",
+    "Implement scrape_chapter(session, chapter_url, cache_dir) -> dict to: (1) GET chapter HTML, (2) parse content using BeautifulSoup, (3) clean HTML using clean_chapter_content() (remove scripts, styles, ads, author notes; preserve formatting; convert relative URLs to absolute; remove external links), (4) extract chapter_title and next_chapter_url using fallback selector chain (a.next -> a[rel=next] -> regex pattern /chapter-\\d+/ -> text matching 'Next Chapter'), (5) return dict with keys: chapter_number, chapter_title, url, content, word_count",
+    "Implement find_next_chapter_url(soup) -> str|None with selector fallback chain: 'a.next', 'a[rel=\"next\"]', regex /chapter-\\d+/, then return None if novel is complete",
+    "Implement save_chapter(cache_dir: str, chapter_num: int, chapter_data: dict) using atomic write pattern: (1) create chapters_dir if not exists, (2) write to temp file {chapter_num}.json.tmp with full chapter JSON (chapter_number, chapter_title, url, content, word_count, scraped_at ISO timestamp, completed: false initially), (3) call os.fsync() to ensure disk write, (4) atomic rename temp -> final file, (5) call update_state_json() after successful write to mark last_chapter_scraped and last_chapter_valid=true",
+    "Implement update_state_json(cache_dir: str, updates: dict) to: (1) load state.json if exists (else initialize {}), (2) merge updates (e.g., {last_chapter_scraped: 42, last_chapter_valid: true}), (3) add updated_at ISO timestamp, (4) write to state.json atomically (temp + rename + fsync)",
+    "Implement main scrape_novel(novel_id: str, start_chapter: int, cache_dir: str, rate_limit_delay_ms: int) function that: (1) accepts command-line args via argparse (--novel-id, --start-chapter, --cache-dir, optional --rate-limit-delay-ms), (2) creates requests Session with User-Agent header, (3) loops chapter_num from start_chapter, (4) calls scrape_chapter(), saves via save_chapter(), outputs JSON to stdout with keys {type, chapter, title, wordCount, completed}, (5) sleeps rate_limit_delay_ms (default 5000ms from env or arg), (6) on HTTP 429: outputs {type: 'rate_limited', backoff_seconds, chapter}, sleeps exponentially (60s -> 300s max), retries same chapter without incrementing, (7) on network error: outputs {type: 'error', code: 'NETWORK_ERROR', message, retryable: true, chapter}, exits with code 1, (8) on parse error: logs to stderr, continues to next chapter, (9) on no next chapter found: outputs {type: 'complete', chapter: final_chapter}, exits 0",
+    "Implement clean_chapter_content(raw_html: str) -> str using BeautifulSoup that: (1) removes <script>, <style>, <noscript> tags completely, (2) removes tags matching class *ad*, *banner*, *comment*, *author-note*, (3) removes event handler attributes (onclick, onload, onerror), (4) converts relative img src to absolute (prepend https://www.freewebnovel.com), (5) removes external links but keeps chapter links (unwrap a tags where href is not /path and doesn't contain 'freewebnovel'), (6) trims excessive whitespace using html.parser and returns cleaned HTML string",
+    "Create /Users/mac/Documents/epubLegend/backend/scrapers/test_freewebnovel_scraper.py with pytest fixtures: mock_search_html (HTML string with sample search results), mock_chapter_html (HTML string with sample chapter content). Implement tests: test_search_novels_parses_results (mock HTTP GET, verify results list), test_extract_metadata_handles_missing_fields (verify defaults), test_scrape_chapter_cleans_content (verify no ads/scripts), test_find_next_chapter_url_with_fallbacks (verify selector priority), test_save_chapter_atomic_write (verify temp + rename, mock os.fsync), test_rate_limit_backoff (mock sleep, verify exponential delay on 429), test_chapter_numbering_nonsequential (verify chapters 1, 5, 10 sort correctly)"
+  ],
+  "acceptance_criteria": [
+    "Running `python3 backend/scrapers/freewebnovel_scraper.py --help` shows all argument options (--novel-id, --start-chapter, --cache-dir, --rate-limit-delay-ms)",
+    "pytest tests pass: `python -m pytest backend/scrapers/test_freewebnovel_scraper.py -v` shows all tests passing",
+    "Search function returns list of dicts with keys: url, title, author, cover, genre (verified via test)",
+    "Chapter content is cleaned: no <script> tags, no class='ad*' elements, relative URLs converted to absolute (verified via test)",
+    "save_chapter creates atomic file at cache_dir/chapters/{chapter_number}.json with completed flag (verified via test)",
+    "Rate limit handling: on HTTP 429, scraper outputs rate_limited JSON and sleeps exponentially (verified via test)"
+  ],
+  "verification": [
+    "Run `cd /Users/mac/Documents/epubLegend && python -m pytest backend/scrapers/test_freewebnovel_scraper.py -v --tb=short` and confirm all tests pass",
+    "Run `python backend/scrapers/freewebnovel_scraper.py --help` and verify all args are documented",
+    "Manual test: create mock HTML file and run scraper locally with --cache-dir /tmp/test_novel to verify JSON stdout output format matches spec",
+    "Verify clean_chapter_content removes ads: grep for 'ad' in test output should show class removed (test assertion checks this)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

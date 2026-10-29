@@ -1,0 +1,39 @@
+{
+  "id": "FEAT-006",
+  "type": "feat",
+  "description": "E-book generation (EPUB and PDF): Implement POST /api/generate-ebook endpoint that reads cached chapters, validates minimum 3 chapters, and generates EPUB using epub-gen or PDF using Puppeteer. Handles cover images, metadata, TOC, styling, and error recovery.",
+  "status": "pending",
+  "steps": [
+    "Create /Users/mac/Documents/epubLegend/backend/services/ebook.ts with functions: (1) loadCachedChapters(novelId) -> {chapters: [{ chapter_number, chapter_title, content, word_count }], sortedByNumber}, (2) loadMetadata(novelId) -> {title, author, description, cover_url, genre, status}, (3) downloadAndCacheCover(novelId, coverUrl, title, author) -> download cover image, resize if >5MB to 1024x1536, save to downloads/novels/{novelId}/cover.jpg; on failure, generate placeholder with title+author text overlay using sharp, (4) validateChapters(novelId) -> return {hasMinimumChapters: boolean, completedChapters: number, reason?: string} (minimum 3), (5) generateEpub(novelId) -> call epub-gen with metadata, chapters, cover, return file path",
+    "Implement generateEpub(novelId) function: (1) validate chapters (throw error if <3), (2) load metadata and chapters, (3) construct chapters array for epub-gen library with structure [{title: 'Chapter 1', data: '<h1>...</h1><p>...</p>'}, ...], (4) load cover image path if exists, (5) create epub instance with EpubGenerator {title, author, description, cover: coverPath, content: chapters}, (6) output to /Users/mac/Documents/epubLegend/downloads/novels/{novelId}/{metadata.title}.epub, (7) return output file path, (8) on error: throw with descriptive message",
+    "Implement generatePdf(novelId) function using Puppeteer: (1) validate chapters (throw error if <3), (2) load metadata and chapters, (3) build HTML document with: title page (cover image if exists, title and author centered), TOC (list of chapter titles), chapters (each on new page with h2 title + content), (4) launch Puppeteer with {headless: true}, create page, setContent(html, {waitUntil: 'networkidle2'}), (5) generate PDF via page.pdf({path: outputPath, format: 'A4', margin: '1cm', printBackground: true}), (6) close browser, return output path, (7) error handling: if Puppeteer launch fails, throw 503 error 'PDF generation unavailable', (8) use buildPdfHtml utility to construct HTML with inline CSS and proper escaping",
+    "Implement buildPdfHtml(metadata, chapters, coverPath) -> HTML string: (1) create <!DOCTYPE html> with <head> meta charset and <style> block (body serif font, line-height 1.6, chapters page-break-before: always, h2 margin, etc.), (2) title page with cover image (if coverPath exists) and centered title/author text, (3) TOC page with list of chapter titles, (4) for each chapter: <div class='chapter'><h2>{title}</h2>{content}</div> with page-break-before, (5) escape HTML special characters in title/author",
+    "Implement downloadAndCacheCover(novelId, coverUrl, title, author) function: (1) if coverUrl is blank, skip download and generate placeholder, (2) else: fetch coverUrl with 10s timeout, (3) check response content-length; if >5MB, reject download, (4) use sharp to resize to 1024x1536 if larger, convert to JPEG quality 85, (5) save to /downloads/novels/{novelId}/cover.jpg, (6) on timeout/network error: generate placeholder instead, (7) placeholder: use sharp to render SVG with 1024x1536 gray background, black text overlay with title and author centered, large font, convert to JPEG, (8) ensure cover.jpg always exists (either downloaded or generated)",
+    "Create /Users/mac/Documents/epubLegend/frontend/pages/api/generate-ebook.ts (POST endpoint) that: (1) parse request {novelId, format: 'epub'|'pdf'}, (2) validate novelId (64-char hex), validate format in ['epub', 'pdf'], (3) call validateChapters(novelId), if <3 chapters return 422 {error: 'Insufficient chapters', completedChapters, code: 'INSUFFICIENT_CHAPTERS'}, (4) try generateEpub or generatePdf based on format, (5) on success: set response headers Content-Type (application/epub+zip or application/pdf), Content-Disposition: attachment; filename='{title}.epub', (6) stream file from disk using fs.createReadStream, (7) on error (Puppeteer unavailable): return 503 {error: 'PDF generation unavailable. Try EPUB export instead.'}, (8) on file not found: return 500 {error: 'E-book generation failed'}, (9) log generation success/failure to console",
+    "Create /Users/mac/Documents/epubLegend/backend/services/__tests__/ebook.test.ts with tests: (1) test_generate_epub_requires_3_chapters (mock <3 chapters, verify error), (2) test_generate_epub_creates_file (mock 5 chapters + metadata, verify epub file created), (3) test_generate_pdf_requires_3_chapters, (4) test_generate_pdf_creates_file (mock 5 chapters + metadata, verify pdf file created), (5) test_download_cover_resizes_large_image (mock >5MB image, verify resized to 1024x1536), (6) test_generate_cover_placeholder_on_missing_url (mock null coverUrl, verify placeholder generated), (7) test_build_pdf_html_escapes_special_chars (verify title with <>&\" are escaped in HTML)",
+    "Create integration test /Users/mac/Documents/epubLegend/frontend/pages/api/__tests__/generate-ebook.test.ts: (1) test POST /api/generate-ebook with valid novelId and format='epub', (2) test POST with format='pdf', (3) test 422 response when <3 chapters, (4) test 404 when novelId not found, (5) test Content-Disposition header is set correctly for file download"
+  ],
+  "acceptance_criteria": [
+    "POST /api/generate-ebook with valid novelId and format='epub' returns 200 with EPUB file stream (Content-Type: application/epub+zip)",
+    "POST /api/generate-ebook with format='pdf' returns 200 with PDF file stream (Content-Type: application/pdf)",
+    "POST with <3 chapters returns 422 {error: 'Insufficient chapters', completedChapters: N}",
+    "EPUB file contains all chapters with title page and metadata",
+    "PDF file contains all chapters with cover page, TOC, and page breaks",
+    "Cover image is downloaded and cached; if >5MB, resized to 1024x1536 pixels",
+    "Placeholder cover is generated if download fails or URL is missing",
+    "Unit tests pass: `npm run test -- backend/services/__tests__/ebook.test.ts`",
+    "Puppeteer install completes (auto-downloads Chromium) without errors on first build"
+  ],
+  "verification": [
+    "Run `npm run test -- backend/services/__tests__/ebook.test.ts -v --tb=short` and confirm all tests pass",
+    "Manually create test cached chapters: 1.json, 2.json, 3.json in /downloads/novels/{testId}/chapters/ with content >= 500 chars",
+    "POST /api/generate-ebook {novelId: testId, format: 'epub'} and verify response streams EPUB file (check magic bytes: PK for zip)",
+    "POST with format='pdf' and verify response streams PDF file (check magic bytes: %PDF for PDF)",
+    "POST with only 2 chapters and verify 422 response",
+    "Check that cover.jpg exists in /downloads/novels/{testId}/ after generation",
+    "Open generated EPUB in e-reader app and verify chapters render correctly",
+    "Open generated PDF in PDF viewer and verify chapters, cover, and page breaks render correctly"
+  ],
+  "blocked_reason": null,
+  "findings": "Requires FEAT-001 (database + storage) and FEAT-004 (queue) to have chapters cached. Puppeteer will auto-download Chromium (~150MB) on first use; cache this in CI to avoid repeated downloads. sharp library is included in FEAT-001 for image resizing. Test data should use mock chapters rather than live scraping."
+}

@@ -1,0 +1,42 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "Frontend components and UI integration: Implement React components for search panel, novel card display, scrape progress tracking, export options, and history panel. Establish state management via Context API, polling hooks, and localStorage persistence. Integrates with API endpoints from FEAT-003 and FEAT-004.",
+  "status": "pending",
+  "steps": [
+    "Create /Users/mac/Documents/epubLegend/frontend/pages/_app.tsx with AppContext (React.createContext) providing: {searchResults, setSearchResults, currentScrape, setCurrentScrape, history, setHistory, clearCurrentScrape}. Use localStorage to persist currentScrape.novelId across sessions. Wrap app with AppContext.Provider",
+    "Create /Users/mac/Documents/epubLegend/frontend/hooks/useScrapeProgress.ts hook that: (1) accepts novelId, (2) on mount, load currentScrapeNovelId from localStorage, (3) implement polling loop with adaptive interval: start 1.5s, back off to 10s if no update for 60s, (4) fetch GET /api/scrape/:novelId/progress every interval, (5) update local state {progress, status, percentComplete, estimatedSecondsRemaining}, (6) on completion or failure, call clearScrape() and remove from localStorage, (7) on stale progress (>300s): call setAlert() for user notification, (8) return {progress, isLoading, error, startScrape, clearScrape, resumeScrape}",
+    "Create /Users/mac/Documents/epubLegend/frontend/hooks/useSearch.ts hook that: (1) accepts search query (debounced onChange at 300ms), (2) on query change, fetch POST /api/search {query, page: 1}, (3) handle 400 validation errors with user message, (4) handle 429 rate limit with retryAfter countdown, (5) return {results, isLoading, error, page, hasMore, onNextPage}",
+    "Create /Users/mac/Documents/epubLegend/frontend/components/SearchPanel.tsx React component that: (1) render SearchInput (text field, placeholder 'Enter novel name...', debounced onChange via useSearch hook), (2) render SearchResults list below input, (3) show loading spinner while searching, (4) show error message if search fails, (5) display max 50 results with pagination controls, (6) for each result, render NovelCard component",
+    "Create /Users/mac/Documents/epubLegend/frontend/components/NovelCard.tsx React component that: (1) accept props {novelId, title, author, description, cover, genre, status, onStartScrape}, (2) render card with: cover image (fallback to placeholder if missing), title (bold, larger), author, genre tags, status badge (e.g., 'ongoing' in blue, 'completed' in green), (3) show 'Start Scrape' button if status not already scraped, (4) on button click: POST /api/scrape {novelId, mode: 'start'}, handle 409 duplicate (show 'Already scraping'), call onStartScrape(novelId) callback to update app state",
+    "Create /Users/mac/Documents/epubLegend/frontend/components/ScrapeProgressPanel.tsx React component that: (1) accept props {novelId, jobId, status, progress, error, onResume, onCancel}, (2) render based on status enum: 'pending' -> 'Queued (position #X)', 'in_progress' -> progress bar + chapter counter + estimated time, 'completed' -> '✓ Complete!' with export buttons, 'failed' -> error message + Resume button, (3) show ProgressBar component from 0-100%, (4) display chapter counter 'XX/YY chapters (ZZ%)', (5) display estimated time remaining using progress.estimatedSecondsRemaining, (6) on Resume button: POST /api/scrape {novelId, mode: 'resume'}, (7) on Cancel button (if implemented): POST /api/scrape/{jobId}/cancel (stub for future), (8) use useScrapeProgress hook to poll /api/scrape/:novelId/progress",
+    "Create /Users/mac/Documents/epubLegend/frontend/components/ExportPanel.tsx React component that: (1) accept props {novelId, status, completedChapters}, (2) show Export EPUB and Export PDF buttons (disabled if status != 'completed' or completedChapters < 3), (3) on button click: POST /api/generate-ebook {novelId, format: 'epub'|'pdf'}, (4) handle 422 insufficient chapters error, (5) on success: download file (set Content-Disposition attachment), (6) show loading spinner during generation, show success message after download",
+    "Create /Users/mac/Documents/epubLegend/frontend/components/HistoryPanel.tsx React component that: (1) render list of previously scraped novels from app state history, (2) for each item: show title, author, scraped date, download link (if e-books exist), (3) on click: show option to re-download or delete local cache",
+    "Create /Users/mac/Documents/epubLegend/frontend/pages/index.tsx as main app layout: (1) render SearchPanel in left/top column, (2) render ScrapeProgressPanel in right/bottom column (show only if currentScrape is set), (3) render ExportPanel below progress panel, (4) render HistoryPanel in footer or sidebar, (5) use Tailwind CSS grid/flexbox for responsive layout",
+    "Create /Users/mac/Documents/epubLegend/frontend/styles/globals.css with Tailwind imports and custom styles: button hover states, input focus states, progress bar animation, responsive breakpoints (mobile-first)",
+    "Create /Users/mac/Documents/epubLegend/frontend/public/placeholder.jpg (simple placeholder image for novels without cover)",
+    "Create unit tests in /Users/mac/Documents/epubLegend/frontend/__tests__/: components.test.tsx (test SearchPanel rendering, NovelCard button click, ScrapeProgressPanel status display), hooks.test.ts (test useSearch debouncing and error handling, useScrapeProgress polling intervals), state.test.tsx (test localStorage persistence, context updates)"
+  ],
+  "acceptance_criteria": [
+    "SearchPanel renders with text input and calls useSearch on input change",
+    "NovelCard renders cover, title, author, genre tags, and Start Scrape button",
+    "ScrapeProgressPanel displays correct status badge and progress bar for each status state",
+    "ExportPanel buttons are disabled when completedChapters < 3, enabled after",
+    "useScrapeProgress hook polls at 1.5s interval initially, backs off to 10s after 60s no update",
+    "localStorage persists currentScrapeNovelId across page refresh (verified manually)",
+    "Clicking Start Scrape button POSTs to /api/scrape and shows progress panel",
+    "Unit tests pass: `npm run test -- frontend/__tests__`"
+  ],
+  "verification": [
+    "Run `npm run dev` and open http://localhost:3000 in browser",
+    "Search for 'test novel' and verify SearchPanel shows results (will fail with real scraper, but API should respond)",
+    "Click Start Scrape on a result and verify ScrapeProgressPanel appears with 'Queued' status",
+    "Check browser console for no errors (all components should mount without errors)",
+    "Check browser DevTools > Application > localStorage for 'currentScrapeNovelId' entry",
+    "Refresh page and verify ScrapeProgressPanel persists if scrape was in progress",
+    "Run `npm run test -- frontend/__tests__` and confirm all component tests pass",
+    "Verify responsive layout on mobile (use DevTools device emulation)"
+  ],
+  "blocked_reason": null,
+  "findings": "Requires FEAT-003 (API endpoints) and FEAT-004 (queue system) to be functional for full integration testing. Component tests can mock API responses. localStorage integration must be tested in browser, not Jest (use manual testing or e2e framework like Playwright)."
+}

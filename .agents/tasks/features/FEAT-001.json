@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Project initialization: Create Next.js 14 workspace structure with package.json, tsconfig, .env.local, directory scaffolding, and SQLite database schema. Sets up the foundation for all subsequent features.",
+  "status": "pending",
+  "steps": [
+    "Create root package.json at /Users/mac/Documents/epubLegend/package.json with npm workspaces config pointing to 'frontend' and 'backend' directories. Include shared dev dependencies: TypeScript, @types/node, prettier, eslint. Prepare scripts: 'build': 'npm -ws run build', 'test': 'npm -ws run test', 'dev': 'npm --workspace=frontend run dev'",
+    "Create /Users/mac/Documents/epubLegend/frontend/package.json with Next.js 14, React 18, TypeScript, Tailwind CSS, axios, sharp, epub-gen. Include scripts: 'dev': 'next dev', 'build': 'next build', 'test': 'jest --watch'",
+    "Create /Users/mac/Documents/epubLegend/backend/package.json with Express (via API routes), bull, redis (optional), better-sqlite3, axios, uuid, typescript, ts-node. Include scripts: 'build': 'tsc', 'start': 'node dist/index.js', 'test': 'jest --watch'",
+    "Create /Users/mac/Documents/epubLegend/tsconfig.json at root with path aliases: @frontend/*, @backend/*. Include strict mode, target ES2020, moduleResolution bundler",
+    "Create /Users/mac/Documents/epubLegend/.env.local with variables: NOVEL_SOURCE_URL=https://www.freewebnovel.com, CACHE_DIR=/Users/mac/Documents/epubLegend/downloads, DB_PATH=/Users/mac/Documents/epubLegend/db/novels.db, REQUEST_TIMEOUT_MS=15000, MAX_RETRIES=3, PYTHON_PATH=/usr/bin/python3. Comment out RATE_LIMIT_DELAY_MS to use 5-second default",
+    "Create /Users/mac/Documents/epubLegend/.gitignore with entries: node_modules/, .next/, dist/, *.db, *.db-shm, *.db-wal, downloads/, /db/, .env.local, .DS_Store",
+    "Create directory structure: /Users/mac/Documents/epubLegend/frontend/{pages,components,hooks,styles,public}, /Users/mac/Documents/epubLegend/backend/{services,scrapers,models}, /Users/mac/Documents/epubLegend/db/, /Users/mac/Documents/epubLegend/downloads/novels/",
+    "Create /Users/mac/Documents/epubLegend/backend/models/db.ts with SQLite schema initialization using better-sqlite3. Implement: novels table (id TEXT PRIMARY KEY, url UNIQUE, title, author, description, cover_url, genre, status, created_at, last_scraped_at), chapters table (id TEXT PRIMARY KEY, novel_id FK, chapter_number INT, chapter_title, url, content, created_at, updated_at, UNIQUE(novel_id, chapter_number)), scrape_jobs table (id TEXT PRIMARY KEY, novel_id FK, status CHECK, total_chapters, completed_chapters, last_chapter_scraped, last_chapter_valid, last_chapter_url, error_message, started_at, completed_at, created_at). Create init function to create tables if not exist",
+    "Create /Users/mac/Documents/epubLegend/frontend/pages/_app.tsx with React Context provider for app state (searchResults, currentScrape, history) and set up Tailwind CSS import in styles/globals.css",
+    "Create /Users/mac/Documents/epubLegend/frontend/pages/index.tsx as main app shell with SearchPanel, ScrapeProgressPanel, ExportPanel, and HistoryPanel components (components imported but not yet implemented)",
+    "Create npm script /Users/mac/Documents/epubLegend/scripts/setup.sh to verify Python 3.9+, install Python dependencies (beautifulsoup4, requests), create db/ and downloads/ directories with correct permissions"
+  ],
+  "acceptance_criteria": [
+    "Running `npm install` succeeds at root and installs all workspace dependencies",
+    "Running `npm run build` compiles TypeScript without errors and generates Next.js build",
+    "Database schema is initialized: running `node -e \"require('./backend/models/db.ts').initDb()\"` creates novels.db with all 3 tables and correct schemas",
+    ".env.local exists with all required variables",
+    "Directory structure is complete: frontend/pages, backend/services, db/, downloads/novels/ all exist",
+    "npm run dev starts Next.js dev server on localhost:3000"
+  ],
+  "verification": [
+    "Run `npm install` at root and confirm no errors (should install Next.js, React, better-sqlite3, Bull, etc.)",
+    "Run `npm run build` and confirm successful build output (Next.js build completes, TypeScript compiles)",
+    "Run `npm run dev` and verify dev server starts at http://localhost:3000 (check terminal output)",
+    "Verify directory structure: `ls -la /Users/mac/Documents/epubLegend/frontend/pages /Users/mac/Documents/epubLegend/backend/services /Users/mac/Documents/epubLegend/db /Users/mac/Documents/epubLegend/downloads/novels` should all exist",
+    "Verify .env.local exists: `cat /Users/mac/Documents/epubLegend/.env.local | grep NOVEL_SOURCE_URL` should output the freewebnovel URL"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

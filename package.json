@@ -1,0 +1,25 @@
+{
+  "name": "epublegend",
+  "version": "0.1.0",
+  "description": "Full-stack web scraper for freewebnovel.com that generates EPUB/PDF e-books",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "build": "pnpm --filter=frontend build",
+    "test": "pnpm --filter=frontend test && pnpm --filter=backend test",
+    "dev": "pnpm --filter=frontend dev",
+    "start": "pnpm --filter=frontend start"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3",
+    "prettier": "^3.1.1",
+    "eslint": "^8.56.0"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}
