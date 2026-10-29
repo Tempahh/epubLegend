@@ -8,16 +8,19 @@
     "backend"
   ],
   "scripts": {
-    "build": "pnpm --filter=frontend build",
-    "test": "pnpm --filter=frontend test && pnpm --filter=backend test",
-    "dev": "pnpm --filter=frontend dev",
-    "start": "pnpm --filter=frontend start"
+    "build": "npm run build --workspace=frontend",
+    "test": "npm test --workspace=frontend && npm test --workspace=backend",
+    "dev": "npm run dev --workspace=frontend",
+    "start": "npm run start --workspace=frontend"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
-    "typescript": "^5.3.3",
+    "@types/sql.js": "^1.4.11",
+    "@types/uuid": "^10.0.0",
+    "eslint": "^8.56.0",
+    "jest-environment-jsdom": "^30.5.2",
     "prettier": "^3.1.1",
-    "eslint": "^8.56.0"
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.17.0"

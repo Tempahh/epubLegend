@@ -76,11 +76,11 @@ export async function initDb(): Promise<SqlJsDatabase> {
       CREATE INDEX IF NOT EXISTS idx_scrape_jobs_status ON scrape_jobs(status);
     `;
 
-    db.run(createTablesSQL);
+    db!.run(createTablesSQL);
     saveDatabase();
   }
 
-  return db;
+  return db!;
 }
 
 export function getDatabase(): SqlJsDatabase {
